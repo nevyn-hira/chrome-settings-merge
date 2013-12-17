@@ -1,0 +1,99 @@
+#!/usr/bin/env python
+
+# Chrome/Chromium settings merge (Currently Unnamed)
+# Author: 
+#       Nevyn Hira (nevynh@gmail.com)
+# Purpose:
+#       To be able to take a preferences file and apply changes
+#       using a json file stored in the same format.
+#       The intention is that this is eventually used to provide
+#       management functions for Chrome by running this code before
+#       launching the browser.
+#       This should then give it the ability to install applications
+#       from the Google Store, set mandatory settings etc.
+#       This is WAY more flexible than policies (assuming you can get policies
+#       to work).
+#
+# Change Log:
+#       16 December, 2013
+#           * Initial program. Is able to deal with the following cases:
+#           ** { key:value,key:value }
+#           ** { key:value,key:{key,value} }
+#           ** { key:value,key:[value, value] }
+#           ** { key:value,key:[{key:value,key:value},{key:value} }
+#           ** { key:value,key:[value,[value,value]]}
+
+import sys
+import os
+
+def get_index( original, value ):
+# This has been written for a very specific use case.
+# I imagine it would need to be extended...
+    if 'name' in value:
+        for (counter, item ) in enumerate( original ):
+            if 'name' in item:
+                if 'path' in item and 'path' in value:
+                    if item[ 'name' ] == value[ 'name' ] and \
+                        item[ 'path' ] == value[ 'path' ]:
+                        return counter
+                else:
+                    if item[ 'name' ] == value[ 'name' ]:
+                        return counter
+    return -1
+
+def merge( original, changes ):
+    if isinstance( changes, ( dict ) ):
+        for key, value in changes.iteritems():
+            if key not in original:
+                original[ key ] = value
+            elif isinstance( value, (dict) ):
+                original=dict( original.items() + merge( original [ key ], value ).items())
+            elif isinstance( value, (list) ):
+                for item in value:
+                    changed=merge( original[key], value)
+            else:
+                original[ key ]=value
+    elif isinstance( changes, ( list ) ):
+        for ( counter, value ) in enumerate( changes ):
+            if isinstance( value, (dict) ):
+                index = get_index(original,value)
+                if index == -1:
+                    index = len( original )
+                for key, value2 in value.iteritems():
+                    if key=="name":
+                        pass
+                    else:
+                        original[ index ][ key ]=value2
+            elif isinstance( value, (list) ):
+                index = get_index( original, value )
+                if index == -1:
+                    index = len( original )
+                original[ index ] = merge( original[ index ], value )
+            else:
+                if value not in original:
+                    original.append( value )
+    return original
+
+def print_help(executable_name):
+    print "\nUsage: \n" \
+          "   " + executable_name + " [preferences_file] [changes_file]\n" \
+          "   Where:\n"\
+          "      preferences_file is the main preferences file for Chrome/Chromium.\n"\
+          "         the merged settings also get written back to this file.\n"\
+          "      changes_file is the file containing the changes to apply.\n"
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print_help(sys.argv[0])
+    else:
+        if os.path.exists(sys.argv[1]) and os.path.exists(sys.argv[2]):
+            f = open( sys.argv[1], 'r' )
+            preferences = json.loads( f.read() )
+            f.close()
+            f = open( sys.argv[2],'r' )
+            changes = json.loads( f.read() )
+            f.close()
+            f = open( sys.argv[1], 'w' )
+            f.write( json.dumps(merge( preferences, changes ), indent=3 ) )
+            f.close()
