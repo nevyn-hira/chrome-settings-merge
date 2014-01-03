@@ -1,5 +1,5 @@
 Package: chrome-settings-merge
-Version: 0.0.1~testing
+Version: 0.0.2~precise
 Architecture: i386
 Maintainer: Nevyn <nevynh@gmail.com>
 Description: Merges a Google Chrome/Chromium configuration file with other json files (for changing settings).
